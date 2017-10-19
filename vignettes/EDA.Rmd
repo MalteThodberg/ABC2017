@@ -1,0 +1,286 @@
+---
+title: "Vignette Title"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output:
+  ioslides_presentation:
+    smaller: true
+    highlight: tango
+    transition: faster
+---
+
+## Introduction
+
+This presentation will provide a short introduction to different ways of visualizing a genomics dataset:
+
+Dimensionality reductions (projections)
+
+- PCA
+- LDA and PLSDA
+- MDS
+
+Heatmap like:
+
+- Correlograms
+- Heatmaps with prior k-means clustering.
+
+Clusterings:
+
+- Agglomerative
+- Divisive
+
+## Setup
+Packages:
+```{r}
+library(ABC2017)
+library(ggplot2)
+library(RColorBrewer)
+library(pheatmap)
+library(edgeR)
+
+data(zebrafish)
+```
+
+We start from the trimmed and normalized EM from before:
+```{r}
+# Trim
+above_one <- rowSums(zebrafish$Expression > 1)
+trimmed_em <- subset(zebrafish$Expression, above_one > 3)
+
+# Normalize
+dge <- DGEList(trimmed_em)
+dge <- calcNormFactors(object=dge, method="TMM")
+EM <- cpm(x=dge, log=TRUE)
+```
+
+# PCA (recap)
+
+## PCA
+
+You already know PCA from BoHTA. PCA decomposes the (scaled) EM into principle components representing orthogonal rotations that maximizes total variance. 
+
+This is a powerful way of visualizing data since it will highlight the major but mutually exclusive patterns, as well as quantifiying the contribution of each pattern to the total through explained variance of the components.
+
+PCA in R is simple (Recap from BoHTA): 
+```{r}
+# Perfrom PCA
+pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
+
+# Inspect components
+summary(pca)
+```
+
+## PCA
+
+```{r}
+qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("text"), 
+			color=zebrafish$Design$gallein, label=rownames(zebrafish$Design))
+```
+
+## PCA
+
+```{r}
+qplot(data=as.data.frame(pca$x), x=PC1, y=PC3, geom=c("text"), 
+			color=zebrafish$Design$gallein, label=rownames(zebrafish$Design))
+```
+
+# Heatmaps
+
+## Aim
+
+Heatmaps are classic way of visulizaing datasets as a clustered matrix with color-reprensentation of magnitude.
+
+In addition to visualization of the EM, it also features row and column wise hierachical clusterings, and can be further annotated with groupings along the margins.
+
+Heatmaps are normally most useful for small dataset, otherwise rows, columns and trees tend to get smeared.
+
+A way to get around this is to group genes prior to plotting, which allows for plotting of much bigger data but loosing resolution of individual features.
+
+## Heatmap of large datasets
+```{r, eval=FALSE}
+pheatmap::pheatmap(mat=EM, annotation_col=zebrafish$Design, scale="row")
+# Running this takes waaaaay to long!
+```
+
+## Heatmap of large datasets
+```{r, tidy=TRUE}
+pheatmap::pheatmap(mat=EM, kmeans_k=10, annotation_col=zebrafish$Design, scale="row")
+```
+
+## Heatmap of large datasets
+```{r, tidy=TRUE}
+pheatmap::pheatmap(mat=EM, kmeans_k=100, annotation_col=zebrafish$Design, scale="row")
+```
+
+## Heatmap of large datasets
+```{r, tidy=TRUE}
+pheatmap::pheatmap(mat=EM, kmeans_k=1000, annotation_col=zebrafish$Design, scale="row")
+```
+
+# Distance matrices
+
+## Aim
+
+In many cases we are not (yet) interested in individual genes or clusters, but only on how the samples are different.
+
+A simple way a quantifiying this is to calculate the distance (i.e. euclidian distance) between samples, and plot these values in a heatmap.
+
+Following is examples of doing this. Let's first define the distances:
+```{r}
+# Transpose for samples-wise distances
+distmat <- dist(t(EM)) #
+```
+
+## Heatmap of distance matrix
+```{r, tidy=TRUE}
+pheatmap::pheatmap(mat=as.matrix(distmat), color=brewer.pal(name="RdPu", n=9), clustering_distance_rows=distmat, clustering_distance_cols=distmat, annotation_col=zebrafish$Design, annotation_row=zebrafish$Design)
+```
+
+# MDS
+
+## Aim
+
+We can view the distance matrix as a new high-dimensional space, where measurements are now distances to other samples.
+
+This means we can use dimensionality reduction to try an represent the distance matrix in fewer dimensions!
+
+Multi-Dimensional Scaling finds a low-dimensional representation (usually 2D) of a high-dimensional distance matrix, preserving the distances between samples as best as possible.
+
+Let's see how this works first by using the example data `UScitiesD`!
+
+## MDS: Small example
+
+The UScitiesD is `dist` object holding distances between 9 major US cities:
+
+```{r, tidy=TRUE}
+class(UScitiesD)
+UScitiesD
+```
+
+## MDS: Small example
+
+We can use `cmdscale` function to reduce the dimensionality of the distance matrix:
+
+```{r, tidy=TRUE}
+# Call cmdscale
+mds <- cmdscale(UScitiesD, k=2)
+mds
+```
+
+We can then easily plot this 2D representation: How does it look?
+
+## MDS: Small example
+
+```{r, tidy=TRUE}
+qplot(x=mds[,1], y=mds[,2], label=rownames(mds), geom="text")
+```
+
+## MDS: Real example
+
+Let's use the distance matrix from before and do MDS:
+
+```{r, tidy=TRUE}
+mds <- cmdscale(distmat, k=2)
+```
+
+Gather all the info we need for plotting:
+```{r, tidy=TRUE}
+P <- data.frame(zebrafish$Design, mds)
+```
+
+How does the plot look compared to the PCA-plot?
+
+## MDS: Real example
+
+```{r, tidy=TRUE}
+qplot(x=X1, y=X2, label=rownames(P), color=gallein, geom="text", data=P)
+```
+
+## MDS: edgeR and limma
+
+One of the advantages of MDS is that the distance matrix can be calculated in any way possible. While it might not always be possible to do PCA (i.e. missing values), it is usually possible to define some distance measure between samples.
+
+MDS is the built-in visualization method in edgeR (and limma), where distances are calculated in a different way:
+
+Instead of calculating distance based on all genes, it only used topN features: Either defined by overall differences or pairwise differences.
+
+This goes back to the assumption that most genes are not changing, and therefore there's little to gain in including them in the analysis.
+
+## MDS: edgeR and limma
+
+`plotMDS` will do all the work for us (can also be called directly on a `DGEList`):
+
+```{r, tidy=TRUE}
+plotMDS(EM, top=1000)
+```
+
+
+## MDS: edgeR and limma
+
+The same plot, but using far fewer features:
+
+```{r, tidy=TRUE}
+plotMDS(EM, top=10)
+```
+
+# Supervised projections
+
+## Aim
+
+So far we have look at unsupervised projections: We have not taken anything known about the samples into account.
+
+Another approach is supervised projections, where we try to create a low-dimensional representation that best captures differences between our known groups.
+
+A popular methods for this is Linear Discriminant Analysis (LDA). Unfortunately, LDA runs into problems with genomics data due to high multi-colinearity of variables.
+
+limma has a version of LDA for high-dimensional data that implements a few tricks to get around this issue. Again, this method uses only a subset of top genes.
+
+It should be noted though, that supervised projections almost always produce nicely looking plots (due to the high number of input features). That means they should be interpretated with extra caution!
+
+## LDA in limma
+
+We will get back to what many of these settings mean!
+```{r, tidy=TRUE}
+plotRLDF(EM, nprobes=100, labels.y=zebrafish$Design$gallein, trend=TRUE, robust=TRUE)
+```
+
+## PLSDA
+
+For those interested, another (more general, but much slower) alternative to LDA for genomics data is Partial Least Squares Discriminant Analysis (PLSDA):
+
+```{r, tidy=TRUE}
+# Perfrom PLSDA
+plsda <- DiscriMiner::plsDA(variables=scale(t(EM)), group=zebrafish$Design$gallein, autosel=FALSE, comps=2)
+
+# Lots of output, we are interested in the components
+summary(plsda)
+```
+
+## PLSDA
+```{r}
+qplot(data=as.data.frame(plsda$components), x=t1, y=t2, geom=c("text"), 
+			color=zebrafish$Design$gallein, label=rownames(zebrafish$Design))
+```
+
+## Exercise
+
+The `zebrafish` dataset is boring! It's few samples and only limited extra information.
+
+Your exercise now is to perform EDA on the two other datasets in `ABC2017`:
+```{r}
+data(pasilla)
+data(yeast)
+```
+
+If you are super quick, you can also have a look at a much more complex dataset:
+```{r}
+data(tissues)
+```
+
+You are free to do whatever you like - **but** you should be able to motivate the choice of algorithm/package/tool etc.
+
+We will go through some example solutions at the end of today.
+
+Happy exploring!
+
+
