@@ -14,10 +14,26 @@ load(file=con)
 close(con)
 bot <- hammer.eset
 
-RatNeurons <- list(Design=pData(bot),
+rat <- list(Design=pData(bot),
 									 Annotation=fData(bot),
 									 Expression=as.matrix(exprs(bot)))
 
-names(RatNeurons$Expression) <- NULL
+names(rat$Expression) <- NULL
 
-save(RatNeurons, file="./data/rat.rda")
+devtools::use_data(rat, overwrite = TRUE)
+
+#### Asmann Tissues ####
+
+# Get data
+con <- url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/bodymap_eset.RData")
+load(file=con)
+close(con)
+bot = bodymap.eset
+
+tissues <- list(Design=pData(bot),
+											Annotation=fData(bot),
+											Expression=as.matrix(exprs(bot)))
+
+names(tissues$Expression) <- NULL
+
+devtools::use_data(tissues, overwrite = TRUE)

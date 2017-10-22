@@ -1,0 +1,326 @@
+---
+title: "Crash course in linear modelling for single and multiple genes"
+author: "Malte Thodberg"
+date: "`r Sys.Date()`"
+output:
+  ioslides_presentation:
+    smaller: true
+    highlight: tango
+    transition: faster
+vignette: >
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteIndexEntry{EDA}
+  %\usepackage[UTF-8]{inputenc}
+---
+
+## Introduction
+
+This presentations cover some basic intutions about linear models of gene expression.
+
+We will go through how lm() works, focusing on the specification of design or model matrices for some common designs for expression of a single gene.
+
+Then we will look at linear models for multiple genes using limma.
+
+```{r}
+library(ABC2017)
+library(ggplot2)
+theme_set(theme_minimal())
+data("lmExamples")
+names(lmExamples)
+```
+
+# Linear models of a single gene
+
+## A simple example
+
+Let's consider the first and simplest dataset:
+
+```{r}
+lmExamples$twoGroup1
+```
+
+## A simple example
+
+Let's plot the two groups:
+
+```{r, fig.height=4, fig.width=6}
+ggplot(lmExamples$twoGroup1, aes(x=Group, y=Expression, color=Group)) +
+	geom_jitter(alpha=0.75) +
+	stat_summary(fun.y="mean", fun.ymax="mean", fun.ymin="mean",
+							 geom="crossbar", color="black", alpha=0.5, linetype="dashed")
+```
+
+## A simple example
+
+We might compare the means using a t-test:
+
+```{r}
+t.test(Expression~Group, data=lmExamples$twoGroup1)
+```
+
+## A simple example
+
+In this simple example, lm() is identical to the t-test, since they are both based on minimizing the residual sum of squares (RSS):
+
+```{r}
+summary(lm(Expression~Group, data=lmExamples$twoGroup1))
+```
+
+What is the meaning of the coefficients?
+
+## A simple example
+
+`lm()` models the data as :
+
+$$ Y_i = \beta_0 + \beta_1 X_i + \varepsilon_i, i=1,\dots,n $$
+This can be expressed using linear algebra terms as:
+
+$$ \mathbf{Y}=\mathbf{X}\boldsymbol{\beta}+\boldsymbol{\varepsilon} $$
+
+`lm()` calculate the coefficients in Beta using Ordinary Least Squares (OLS):
+
+First `lm()` build a design (or model) matrix, which is a presence-absence matrix of effects.
+
+```{r}
+mod <- model.matrix(~Group, data=lmExamples$twoGroup1)
+```
+
+## A simple example
+
+```{r}
+mod
+```
+
+## A simple example
+
+Then `lm()` obtains OLS coefficients using: $$ \hat{\boldsymbol{\beta}} = (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \mathbf{Y} $$
+
+```{r}
+solve(t(mod) %*% mod) %*% t(mod) %*% lmExamples$twoGroup1$Expression
+```
+
+See your favourite statistics text book for a proof of this!
+
+Note: Actually `lm()` uses something called QR-decomposition for numeric stability, but the idea is the same.
+
+## A simple example
+
+`lm()` calculate p-values based on the assumption that noise is normally distributed.
+
+In the previous example the difference was signficant. In the second examples it is not!
+```{r}
+summary(lm(Expression~Group, data=lmExamples$twoGroup2))
+```
+
+## A simple example
+
+```{r, fig.height=4, fig.width=6}
+ggplot(lmExamples$twoGroup2, aes(x=Group, y=Expression, color=Group)) +
+	geom_jitter(alpha=0.75) +
+	stat_summary(fun.y="mean", fun.ymax="mean", fun.ymin="mean",
+							 geom="crossbar", color="black", alpha=0.5, linetype="dashed")
+```
+
+## Interaction design
+
+The power of `lm()` over `t.test()` lies in the fact that `lm()` can estimate means in much more complicated models, where we have more than two means to estimate!
+
+Consider for example a classic interaction experiment:
+
+```{r}
+lmExamples$interaction1
+```
+
+## Interaction design
+
+```{r, fig.height=4, fig.width=6}
+ggplot(lmExamples$interaction1, aes(x=paste0(Group, "-", Time), y=Expression, color=Group)) +
+	geom_jitter(alpha=0.75) +
+	stat_summary(fun.y="mean", fun.ymax="mean", fun.ymin="mean",
+							 geom="crossbar", color="black", alpha=0.5, linetype="dashed")
+```
+
+## Interaction design
+
+```{r}
+summary(lm(Expression~Group*Time, data=lmExamples$interaction1))
+```
+
+Is the interaction significant?
+
+## Interaction design
+
+```{r}
+model.matrix(Expression~Group*Time, data=lmExamples$interaction1)
+```
+
+## Interaction design
+
+```{r}
+model.matrix(Expression~Group+Time+Group:Time, data=lmExamples$interaction1)
+```
+
+## Interaction design
+
+```{r, fig.height=4, fig.width=6}
+ggplot(lmExamples$interaction2, aes(x=paste0(Group, "-", Time), y=Expression, color=Group)) +
+	geom_jitter(alpha=0.75) +
+	stat_summary(fun.y="mean", fun.ymax="mean", fun.ymin="mean",
+							 geom="crossbar", color="black", alpha=0.5, linetype="dashed")
+```
+
+## Interaction design
+
+```{r}
+summary(lm(Expression~Group*Time, data=lmExamples$interaction2))
+```
+
+Is the interaction significant?
+
+## Batch correction
+
+Another common case is blocking or correcting for batches:
+
+```{r}
+lmExamples$batchEffect
+```
+
+## Batch correction
+
+```{r, fig.height=4, fig.width=6}
+ggplot(lmExamples$batchEffect, aes(x=paste0(Group, "-", Batch), y=Expression, color=Group)) +
+	geom_jitter(alpha=0.75) +
+	stat_summary(fun.y="mean", fun.ymax="mean", fun.ymin="mean",
+							 geom="crossbar", color="black", alpha=0.5, linetype="dashed")
+```
+
+## Batch correction
+
+Without modelling batch:
+```{r}
+summary(lm(Expression~Group, data=lmExamples$batchEffect))
+```
+
+## Batch correction
+
+With modelling batch:
+```{r}
+summary(lm(Expression~Group+Batch, data=lmExamples$batchEffect))
+```
+
+## Batch correction
+
+```{r}
+model.matrix(~Group+Batch, data=lmExamples$batchEffect)
+```
+
+## Three Groups
+
+As you can see, you can specify any complex design! For example a three group design:
+
+```{r}
+summary(lm(Expression~Group, data=lmExamples$threeGroup))
+```
+
+How does the model matrix look?
+
+## Three groups
+
+```{r, fig.height=4, fig.width=6}
+ggplot(lmExamples$threeGroup, aes(x=Group, y=Expression, color=Group)) +
+	geom_jitter(alpha=0.75) +
+	stat_summary(fun.y="mean", fun.ymax="mean", fun.ymin="mean",
+							 geom="crossbar", color="black", alpha=0.5, linetype="dashed")
+```
+
+## Going further
+
+The R formula interface is almost a programming language in itself!
+
+Due to it's expressiveness, it's used by huge number of packages, making it well worth the effort to learn.
+
+See this cheatsheet for an overview:
+
+https://ww2.coastal.edu/kingw/statistics/R-tutorials/formulae.html
+
+By default, the first alphabetical category is chosen as the Intercept. If you do not want this, you can use the `relevel` function to specify the reference level of the factor.
+
+This "memory" of a factor to store it's reference level is why insists on coercing characters to factors!
+
+# Linear models of multiple genes
+
+## Introduction
+
+Now we have seen how linear models can be used a analyse the expression of a single gene.
+
+In a genomic setting, we wish to analyze the expression of all genes. This means that we are applying the same model many times to each individual genes.
+
+Given the low sample size of most genomics experiments, each linear model has relatively low power to detect differential expression.
+
+We can get around this problem by assuming all models are somehow similar, and share information between them, i.e. share information between genes.
+
+Here we show the simplest implementation of this using limma-trend.
+
+```{r}
+library(limma)
+library(edgeR)
+data("zebrafish")
+```
+
+## Normalizing the EM
+
+Like previosly, we first generate normalize and log-transform the EM:
+
+```{r}
+# Trim
+above_one <- rowSums(zebrafish$Expression > 1)
+trimmed_em <- subset(zebrafish$Expression, above_one > 3)
+
+# Normalize
+dge <- DGEList(trimmed_em)
+dge <- calcNormFactors(object=dge, method="TMM")
+EM <- cpm(x=dge, log=TRUE)
+```
+
+## Setting up the model matrix.
+
+We then set up of simple design matrix
+```{r}
+mod <- model.matrix(~gallein, data=zebrafish$Design)
+mod
+```
+
+## Gene-wise linear models
+
+We then use limma to fit gene-wise linear models
+```{r}
+fit <- lmFit(EM, design=mod)
+fit
+```
+
+## Empirical Bayes
+
+Limma uses empirical bayes to _shrink_ t-statistics of genes toward the overall trend:
+```{r}
+eb <- eBayes(fit, trend=TRUE, robust=TRUE)
+plotSA(eb)
+```
+
+## Empirical Bayes
+
+We can see how the shrinage is working, by comparing the shrunken to the unshrunken t-statistics:
+
+```{r}
+tstat <- data.frame(raw=(fit$coef/fit$stdev.unscaled/fit$sigma)[,"galleintreated"],
+										shrunken=eb$t[,"galleintreated"])
+```
+
+## Empirical Bayes
+
+```{r, fig.height=4, fig.width=4}
+ggplot(tstat, aes(x=raw, y=shrunken, color=raw-shrunken)) + 
+	geom_point(alpha=0.33) +
+	scale_color_distiller(palette = "Spectral") +
+	geom_abline(linetype="dashed", alpha=0.75)
+```
+

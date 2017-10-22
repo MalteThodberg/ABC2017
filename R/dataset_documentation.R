@@ -14,6 +14,13 @@
 #' @source \url{http://www.ncbi.nlm.nih.gov/pubmed?term=20452967}
 "rat"
 
-#' CAGE: Mouse nanotube experiment
-#' @source \url{http://www.ncbi.nlm.nih.gov/pubmed?term=20452967}
-"mouse"
+#' RNA-Seq: Human Tissues Experiment
+#' @source \url{http://www.ncbi.nlm.nih.gov/pubmed/22496456}
+"tissues"
+
+#' #' CAGE: Mouse nanotube experiment
+#' #' @source \url{http://www.ncbi.nlm.nih.gov/pubmed?term=20452967}
+#' "mouse"
+
+#' Example gene expression for common designs
+"lmExamples"

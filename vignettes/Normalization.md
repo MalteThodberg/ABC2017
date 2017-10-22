@@ -1,7 +1,7 @@
 ---
 title: "Normalization and RNA-composition"
 author: "Malte Thodberg"
-date: "`r Sys.Date()`"
+date: "2017-10-20"
 output:
   ioslides_presentation:
     smaller: true
@@ -23,7 +23,8 @@ Density curves and log-log plots will be used to explore the effects of differen
 
 ## TPM normalization
 Setup simple EM:
-```{r}
+
+```r
 sample1 = c(10, 20, 30, 10, 10, 10) # Library size of 100 counts
 sample2 = 2 + sample1 * 2 # Double library size
 sample3 = 1 + sample1 * 3 # Triple library size
@@ -32,42 +33,113 @@ EM = data.frame(sample1, sample2, sample3)
 EM
 ```
 
+```
+##   sample1 sample2 sample3
+## 1      10      22      31
+## 2      20      42      61
+## 3      30      62      91
+## 4      10      22      31
+## 5      10      22      31
+## 6      10      22      31
+```
+
 Note the different library sizes:
-```{r}
+
+```r
 colSums(EM)
+```
+
+```
+## sample1 sample2 sample3 
+##      90     192     276
 ```
 
 ## TPM normalization
 TPM scaling:
-```{r}
+
+```r
 scale(EM, center=FALSE, scale=colSums(EM)) # Lets forget the M-part for now...
+```
+
+```
+##        sample1   sample2   sample3
+## [1,] 0.1111111 0.1145833 0.1123188
+## [2,] 0.2222222 0.2187500 0.2210145
+## [3,] 0.3333333 0.3229167 0.3297101
+## [4,] 0.1111111 0.1145833 0.1123188
+## [5,] 0.1111111 0.1145833 0.1123188
+## [6,] 0.1111111 0.1145833 0.1123188
+## attr(,"scaled:scale")
+## sample1 sample2 sample3 
+##      90     192     276
 ```
 
 Samples can now be compared directly for analysis!
 
 ## CPM normalization
 Introduce DE for some TCs
-```{r}
+
+```r
 EM.DE = EM
 EM.DE[4:6,2] = EM.DE[4:6,2] * 5
 EM.DE[4:6,3] = EM.DE[4:6,3] * 4
 
 EM.DE
 ```
+
+```
+##   sample1 sample2 sample3
+## 1      10      22      31
+## 2      20      42      61
+## 3      30      62      91
+## 4      10     110     124
+## 5      10     110     124
+## 6      10     110     124
+```
 The total RNA content of sample2+3 has increased!
 
 ## CPM normalization
 TPM scaling
-```{r}
+
+```r
 scale(EM.DE, center=FALSE, scale=colSums(EM.DE))
+```
+
+```
+##        sample1    sample2    sample3
+## [1,] 0.1111111 0.04824561 0.05585586
+## [2,] 0.2222222 0.09210526 0.10990991
+## [3,] 0.3333333 0.13596491 0.16396396
+## [4,] 0.1111111 0.24122807 0.22342342
+## [5,] 0.1111111 0.24122807 0.22342342
+## [6,] 0.1111111 0.24122807 0.22342342
+## attr(,"scaled:scale")
+## sample1 sample2 sample3 
+##      90     456     555
 ```
 Non-DE genes are now under-sampled!
 
 ## CPM normalization
 This can affect downstream analysis i.e. distance matrix calculations.
-```{r}
+
+```r
 dist(t(scale(EM, center=FALSE, scale=colSums(EM))))
+```
+
+```
+##             sample1     sample2
+## sample2 0.012991866            
+## sample3 0.004518910 0.008472956
+```
+
+```r
 dist(t(scale(EM.DE, center=FALSE, scale=colSums(EM.DE))))
+```
+
+```
+##            sample1    sample2
+## sample2 0.33260796           
+## sample3 0.28669731 0.04593348
 ```
 
 # Advanced normalization
@@ -75,7 +147,8 @@ dist(t(scale(EM.DE, center=FALSE, scale=colSums(EM.DE))))
 ## Setup
 
 Packages needed for the analysis:
-```{r}
+
+```r
 library(ABC2017)
 library(edgeR)
 library(ggplot2)
@@ -83,7 +156,8 @@ theme_set(theme_minimal()) # Make ggplots prettier
 ```
 
 We will use the small `zebrafish` dataset:
-```{r}
+
+```r
 data(zebrafish)
 ```
 
@@ -97,22 +171,47 @@ The same format is used for the remaining datasets in the `ABC2017` package
 
 ## Setup
 EM:
-```{r}
+
+```r
 head(zebrafish$Expression)
 ```
 
+```
+##                    Ctl1 Ctl3 Ctl5 Trt9 Trt11 Trt13
+## ENSDARG00000000001  304  129  339  102    16   617
+## ENSDARG00000000002  605  637  406   82   230  1245
+## ENSDARG00000000018  391  235  217  554   451   565
+## ENSDARG00000000019 2979 4729 7002 7309  9395  3349
+## ENSDARG00000000068   89  356   41  149    45    44
+## ENSDARG00000000069  312  184  844  269   513   243
+```
+
 Annotation:
-```{r}
+
+```r
 head(zebrafish$Design)
+```
+
+```
+##       gallein
+## Ctl1  control
+## Ctl3  control
+## Ctl5  control
+## Trt9  treated
+## Trt11 treated
+## Trt13 treated
 ```
 
 ## Plotting distributions
 
 edgeR (via limma) provides the `plotDensities` function for exploring the effect of normalization 
 
-```{r}
+
+```r
 plotDensities(zebrafish$Expression, legend="topright")
 ```
+
+![plot of chunk unnamed-chunk-11](figure/unnamed-chunk-11-1.png)
 
 ## Plotting distributions
 
@@ -124,10 +223,13 @@ The get around this probelm a small pseudo-count can be added to all counts in t
 
 ## Plotting distributions
 
-```{r}
+
+```r
 # Pseoducount and log
 plotDensities(log(zebrafish$Expression+1), legend="topright")
 ```
+
+![plot of chunk unnamed-chunk-12](figure/unnamed-chunk-12-1.png)
 
 ## Plotting distributions
 
@@ -137,7 +239,8 @@ Counts with 1-3 counts are not very interesting, since they are likely to be eit
 
 Here we only keep genes with at least 2 counts in at least 4 samples:
 
-```{r}
+
+```r
 # Trim
 above_one <- rowSums(zebrafish$Expression > 1)
 
@@ -149,9 +252,12 @@ log_trimmed_em <-  log(trimmed_em + 1)
 
 ## Plotting distributions
 
-```{r}
+
+```r
 plotDensities(log_trimmed_em, legend="topright")
 ```
+
+![plot of chunk unnamed-chunk-14](figure/unnamed-chunk-14-1.png)
 
 ## Plotting distributions
 
@@ -164,7 +270,8 @@ edgeR does this by implementing the use of normalization factors, which is use t
 ## Using edgeR to normalize
 
 Using edgeR is simple, but first we must save the EM as a `DGEList`:
-```{r}
+
+```r
 # Create DGEList-object from the trimmed em
 dge <- DGEList(trimmed_em)
 
@@ -177,11 +284,31 @@ TMM_em <- cpm(x=dge, log=TRUE, prior.count=1.0)
 head(TMM_em)
 ```
 
+```
+##                        Ctl1     Ctl3       Ctl5     Trt9      Trt11
+## ENSDARG00000000001 2.863841 1.070888  2.9026167 1.876326 -0.4314598
+## ENSDARG00000000002 3.854225 3.360984  3.1620111 1.563859  3.3678160
+## ENSDARG00000000018 3.225830 1.928374  2.2617491 4.309565  4.3375880
+## ENSDARG00000000019 6.152048 6.250098  7.2664067 8.029591  8.7165741
+## ENSDARG00000000068 1.103626 2.524350 -0.1101648 2.419952  1.0285423
+## ENSDARG00000000069 2.901188 1.578056  4.2156712 3.269221  4.5232027
+##                       Trt13
+## ENSDARG00000000001 3.987476
+## ENSDARG00000000002 4.999126
+## ENSDARG00000000018 3.860666
+## ENSDARG00000000019 6.425998
+## ENSDARG00000000068 0.207237
+## ENSDARG00000000069 2.646674
+```
+
 ## Using edgeR to normalize
 The resulting plot shows a nicer alignment of the main peak:
-```{r}
+
+```r
 plotDensities(TMM_em)
 ```
+
+![plot of chunk unnamed-chunk-16](figure/unnamed-chunk-16-1.png)
 
 ## log-log plots
 
@@ -191,15 +318,21 @@ Although it only allows for pairwise comparison, it is a nice way to see the eff
 
 ## log-log plots
 First we consider the (trimmed) log(counts+1)
-```{r}
+
+```r
 qplot(data=log_trimmed_em, x=Ctl3, y=Trt13, alpha=I(0.1)) + geom_smooth(method="gam") + geom_abline(color="red")
 ```
 
+![plot of chunk unnamed-chunk-17](figure/unnamed-chunk-17-1.png)
+
 ## log-log plots
 Compare this with edgeR's TMM normalization:
-```{r}
+
+```r
 qplot(data=as.data.frame(TMM_em), x=Ctl3, y=Trt13, alpha=I(0.1)) + geom_smooth(method="gam") + geom_abline(color="red")
 ```
+
+![plot of chunk unnamed-chunk-18](figure/unnamed-chunk-18-1.png)
 
 ## Exercises
 
@@ -214,7 +347,8 @@ Team up and do the following exercises:
 *HINT for 2:* Read the `calcNormFactors` help file to see where the normalization factors are stored
 
 ## Question 1 code
-```{r}
+
+```r
 # Convert to a DGElist
 dge <- DGEList(trimmed_em)
 
@@ -228,25 +362,39 @@ norms <- lapply(dges, cpm, log=TRUE)
 
 ## Question 1 plot
 
-```{r}
+
+```r
 par(mfrow=c(2,2))
 mapply(plotDensities, norms, edgeR_methods, MoreArgs=list(group=NULL, col=NULL, legend=FALSE))
 ```
 
+![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20-1.png)
+
+```
+##   [,1]         [,2]         [,3]         [,4]        
+## X Numeric,3072 Numeric,3072 Numeric,3072 Numeric,3072
+## Y Numeric,3072 Numeric,3072 Numeric,3072 Numeric,3072
+```
+
 ## Question 2 code
-```{r}
+
+```r
 # Extract the normalization factors
 norm_factors <- sapply(dges, function(x) x$samples$norm.factors)
 colnames(norm_factors) <- edgeR_methods
 ```
 
 ## Question 2 plot
-```{r}
+
+```r
 plot(as.data.frame(norm_factors))
 ```
 
+![plot of chunk unnamed-chunk-22](figure/unnamed-chunk-22-1.png)
+
 ## Question 3 code
-```{r}
+
+```r
 # Create DGEList-object from the trimmed em
 dge <- DGEList(trimmed_em)
 dge <- calcNormFactors(object=dge, method="TMM")
@@ -260,26 +408,41 @@ TMM_z <- cpm(x=dge, log=TRUE, prior.count=20.0)
 ```
 
 ## Question 3 plot v
-```{r}
+
+```r
 qplot(data=as.data.frame(TMM_v), x=Ctl3, y=Ctl5, alpha=I(0.1)) + geom_smooth(method="gam") + geom_abline(color="red")
 ```
 
+![plot of chunk unnamed-chunk-24](figure/unnamed-chunk-24-1.png)
+
 ## Question 3 plot w
-```{r}
+
+```r
 qplot(data=as.data.frame(TMM_w), x=Ctl3, y=Ctl5, alpha=I(0.1)) + geom_smooth(method="gam") + geom_abline(color="red")
 ```
 
+![plot of chunk unnamed-chunk-25](figure/unnamed-chunk-25-1.png)
+
 ## Question 3 plot x
-```{r}
+
+```r
 qplot(data=as.data.frame(TMM_y), x=Ctl3, y=Ctl5, alpha=I(0.1)) + geom_smooth(method="gam") + geom_abline(color="red")
 ```
 
+![plot of chunk unnamed-chunk-26](figure/unnamed-chunk-26-1.png)
+
 ## Question 3 plot y
-```{r}
+
+```r
 qplot(data=as.data.frame(TMM_x), x=Ctl3, y=Ctl5, alpha=I(0.1)) + geom_smooth(method="gam") + geom_abline(color="red")
 ```
 
+![plot of chunk unnamed-chunk-27](figure/unnamed-chunk-27-1.png)
+
 ## Question 3 plot z
-```{r}
+
+```r
 qplot(data=as.data.frame(TMM_z), x=Ctl3, y=Ctl5, alpha=I(0.1)) + geom_smooth(method="gam") + geom_abline(color="red")
 ```
+
+![plot of chunk unnamed-chunk-28](figure/unnamed-chunk-28-1.png)
