@@ -168,7 +168,6 @@ Once again - the next couple of slides contain cheat sheets.
 
 ```{r}
 # Load the data
-data("yeast")
 data("pasilla")
 
 # Set a datasets
