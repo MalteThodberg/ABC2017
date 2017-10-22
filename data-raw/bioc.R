@@ -11,6 +11,7 @@ library(DESeq2)
 library(pasilla)
 data("pasillaGenes")
 
+pEM <- counts(pasillaGenes)
 pGR <- data.frame(geneName=rownames(pEM),
 									row.names=rownames(pEM))
 
