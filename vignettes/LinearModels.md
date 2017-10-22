@@ -1,7 +1,7 @@
 ---
-title: "Linear models crash course"
+title: "Crash course in linear modelling for single and multiple genes"
 author: "Malte Thodberg"
-date: "2017-10-20"
+date: "2017-10-22"
 output:
   ioslides_presentation:
     smaller: true
@@ -17,7 +17,9 @@ vignette: >
 
 This presentations cover some basic intutions about linear models of gene expression.
 
-We will go through how lm() works, focusing on the specification of design or model matrices for some common designs.
+We will go through how lm() works, focusing on the specification of design or model matrices for some common designs for expression of a single gene.
+
+Then we will look at linear models for multiple genes using limma.
 
 
 ```r
@@ -33,7 +35,7 @@ names(lmExamples)
 ## [5] "batchEffect"  "threeGroup"
 ```
 
-# lm() and t.test()
+# Linear models of a single gene
 
 ## A simple example
 
@@ -621,3 +623,220 @@ ggplot(lmExamples$threeGroup, aes(x=Group, y=Expression, color=Group)) +
 ```
 
 ![plot of chunk unnamed-chunk-24](figure/unnamed-chunk-24-1.png)
+
+## Going further
+
+The R formula interface is almost a programming language in itself!
+
+Due to it's expressiveness, it's used by huge number of packages, making it well worth the effort to learn.
+
+See this cheatsheet for an overview:
+
+https://ww2.coastal.edu/kingw/statistics/R-tutorials/formulae.html
+
+By default, the first alphabetical category is chosen as the Intercept. If you do not want this, you can use the `relevel` function to specify the reference level of the factor.
+
+This "memory" of a factor to store it's reference level is why insists on coercing characters to factors!
+
+# Linear models of multiple genes
+
+## Introduction
+
+Now we have seen how linear models can be used a analyse the expression of a single gene.
+
+In a genomic setting, we wish to analyze the expression of all genes. This means that we are applying the same model many times to each individual genes.
+
+Given the low sample size of most genomics experiments, each linear model has relatively low power to detect differential expression.
+
+We can get around this problem by assuming all models are somehow similar, and share information between them, i.e. share information between genes.
+
+Here we show the simplest implementation of this using limma-trend.
+
+
+```r
+library(limma)
+library(edgeR)
+data("zebrafish")
+```
+
+## Normalizing the EM
+
+Like previosly, we first generate normalize and log-transform the EM:
+
+
+```r
+# Trim
+above_one <- rowSums(zebrafish$Expression > 1)
+trimmed_em <- subset(zebrafish$Expression, above_one > 3)
+
+# Normalize
+dge <- DGEList(trimmed_em)
+dge <- calcNormFactors(object=dge, method="TMM")
+EM <- cpm(x=dge, log=TRUE)
+```
+
+## Setting up the model matrix.
+
+We then set up of simple design matrix
+
+```r
+mod <- model.matrix(~gallein, data=zebrafish$Design)
+mod
+```
+
+```
+##       (Intercept) galleintreated
+## Ctl1            1              0
+## Ctl3            1              0
+## Ctl5            1              0
+## Trt9            1              1
+## Trt11           1              1
+## Trt13           1              1
+## attr(,"assign")
+## [1] 0 1
+## attr(,"contrasts")
+## attr(,"contrasts")$gallein
+## [1] "contr.treatment"
+```
+
+## Gene-wise linear models
+
+We then use limma to fit gene-wise linear models
+
+```r
+fit <- lmFit(EM, design=mod)
+fit
+```
+
+```
+## An object of class "MArrayLM"
+## $coefficients
+##                    (Intercept) galleintreated
+## ENSDARG00000000001    2.272323    -0.47696662
+## ENSDARG00000000002    3.456550    -0.15052046
+## ENSDARG00000000018    2.466735     1.70100849
+## ENSDARG00000000019    6.555879     1.16801394
+## ENSDARG00000000068    1.156909     0.04759501
+## 19763 more rows ...
+## 
+## $rank
+## [1] 2
+## 
+## $assign
+## [1] 0 1
+## 
+## $qr
+## $qr
+##       (Intercept) galleintreated
+## Ctl1   -2.4494897     -1.2247449
+## Ctl3    0.4082483      1.2247449
+## Ctl5    0.4082483      0.2898979
+## Trt9    0.4082483     -0.5265986
+## Trt11   0.4082483     -0.5265986
+## Trt13   0.4082483     -0.5265986
+## attr(,"assign")
+## [1] 0 1
+## attr(,"contrasts")
+## attr(,"contrasts")$gallein
+## [1] "contr.treatment"
+## 
+## 
+## $qraux
+## [1] 1.408248 1.289898
+## 
+## $pivot
+## [1] 1 2
+## 
+## $tol
+## [1] 1e-07
+## 
+## $rank
+## [1] 2
+## 
+## 
+## $df.residual
+## [1] 4 4 4 4 4
+## 19763 more elements ...
+## 
+## $sigma
+## ENSDARG00000000001 ENSDARG00000000002 ENSDARG00000000018 
+##          1.7422533          1.2439286          0.5141399 
+## ENSDARG00000000019 ENSDARG00000000068 
+##          0.9388470          1.2334999 
+## 19763 more elements ...
+## 
+## $cov.coefficients
+##                (Intercept) galleintreated
+## (Intercept)      0.3333333     -0.3333333
+## galleintreated  -0.3333333      0.6666667
+## 
+## $stdev.unscaled
+##                    (Intercept) galleintreated
+## ENSDARG00000000001   0.5773503      0.8164966
+## ENSDARG00000000002   0.5773503      0.8164966
+## ENSDARG00000000018   0.5773503      0.8164966
+## ENSDARG00000000019   0.5773503      0.8164966
+## ENSDARG00000000068   0.5773503      0.8164966
+## 19763 more rows ...
+## 
+## $pivot
+## [1] 1 2
+## 
+## $Amean
+## ENSDARG00000000001 ENSDARG00000000002 ENSDARG00000000018 
+##           2.033839           3.381290           3.317239 
+## ENSDARG00000000019 ENSDARG00000000068 
+##           7.139886           1.180707 
+## 19763 more elements ...
+## 
+## $method
+## [1] "ls"
+## 
+## $design
+##       (Intercept) galleintreated
+## Ctl1            1              0
+## Ctl3            1              0
+## Ctl5            1              0
+## Trt9            1              1
+## Trt11           1              1
+## Trt13           1              1
+## attr(,"assign")
+## [1] 0 1
+## attr(,"contrasts")
+## attr(,"contrasts")$gallein
+## [1] "contr.treatment"
+```
+
+## Empirical Bayes
+
+Limma uses empirical bayes to _shrink_ t-statistics of genes toward the overall trend:
+
+```r
+eb <- eBayes(fit, trend=TRUE, robust=TRUE)
+plotSA(eb)
+```
+
+![plot of chunk unnamed-chunk-29](figure/unnamed-chunk-29-1.png)
+
+## Empirical Bayes
+
+We can see how the shrinage is working, by comparing the shrunken to the unshrunken t-statistics:
+
+
+```r
+tstat <- data.frame(raw=(fit$coef/fit$stdev.unscaled/fit$sigma)[,"galleintreated"],
+										shrunken=eb$t[,"galleintreated"])
+```
+
+## Empirical Bayes
+
+
+```r
+ggplot(tstat, aes(x=raw, y=shrunken, color=raw-shrunken)) + 
+	geom_point(alpha=0.33) +
+	scale_color_distiller(palette = "Spectral") +
+	geom_abline(linetype="dashed", alpha=0.75)
+```
+
+![plot of chunk unnamed-chunk-31](figure/unnamed-chunk-31-1.png)
+

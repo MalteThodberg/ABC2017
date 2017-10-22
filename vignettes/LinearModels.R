@@ -92,3 +92,40 @@ ggplot(lmExamples$threeGroup, aes(x=Group, y=Expression, color=Group)) +
 	stat_summary(fun.y="mean", fun.ymax="mean", fun.ymin="mean",
 							 geom="crossbar", color="black", alpha=0.5, linetype="dashed")
 
+## ------------------------------------------------------------------------
+library(limma)
+library(edgeR)
+data("zebrafish")
+
+## ------------------------------------------------------------------------
+# Trim
+above_one <- rowSums(zebrafish$Expression > 1)
+trimmed_em <- subset(zebrafish$Expression, above_one > 3)
+
+# Normalize
+dge <- DGEList(trimmed_em)
+dge <- calcNormFactors(object=dge, method="TMM")
+EM <- cpm(x=dge, log=TRUE)
+
+## ------------------------------------------------------------------------
+mod <- model.matrix(~gallein, data=zebrafish$Design)
+mod
+
+## ------------------------------------------------------------------------
+fit <- lmFit(EM, design=mod)
+fit
+
+## ------------------------------------------------------------------------
+eb <- eBayes(fit, trend=TRUE, robust=TRUE)
+plotSA(eb)
+
+## ------------------------------------------------------------------------
+tstat <- data.frame(raw=(fit$coef/fit$stdev.unscaled/fit$sigma)[,"galleintreated"],
+										shrunken=eb$t[,"galleintreated"])
+
+## ---- fig.height=4, fig.width=4------------------------------------------
+ggplot(tstat, aes(x=raw, y=shrunken, color=raw-shrunken)) + 
+	geom_point(alpha=0.33) +
+	scale_color_distiller(palette = "Spectral") +
+	geom_abline(linetype="dashed", alpha=0.75)
+

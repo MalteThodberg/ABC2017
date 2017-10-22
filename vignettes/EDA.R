@@ -1,6 +1,7 @@
 ## ------------------------------------------------------------------------
 library(ABC2017)
 library(ggplot2)
+theme_set(theme_bw())
 library(RColorBrewer)
 library(pheatmap)
 library(edgeR)
@@ -98,4 +99,92 @@ data(pasilla)
 
 ## ------------------------------------------------------------------------
 data(tissues)
+
+## ------------------------------------------------------------------------
+# Trim
+above_one <- rowSums(pasilla$Expression > 1)
+trimmed_em <- subset(pasilla$Expression, above_one > 3)
+
+# Normalize
+dge <- DGEList(trimmed_em)
+dge <- calcNormFactors(object=dge, method="TMM")
+EM <- cpm(x=dge, log=TRUE)
+
+## ------------------------------------------------------------------------
+plotDensities(EM)
+
+## ------------------------------------------------------------------------
+# Perfrom PCA
+pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
+
+# Save data for plotting
+P <- data.frame(pasilla$Design, pca$x)
+
+# Inspect components
+summary(pca)
+
+## ------------------------------------------------------------------------
+qplot(data=P, x=PC1, y=PC2, geom=c("text"), 
+			color=type, label=rownames(P))
+
+## ------------------------------------------------------------------------
+qplot(data=P, x=PC1, y=PC2, geom=c("text"), 
+			color=condition, label=rownames(P))
+
+## ------------------------------------------------------------------------
+# Perform MDS, but only save output
+mds <-plotMDS(EM, top=100, gene.selection="common", plot=FALSE)
+
+# Save as a data.frame
+P <- data.frame(pasilla$Design, mds$cmdscale.out)
+
+## ------------------------------------------------------------------------
+qplot(data=P, x=X1, y=X2, geom=c("text"), 
+			color=type, label=rownames(P))
+
+## ------------------------------------------------------------------------
+qplot(data=P, x=X1, y=X2, geom=c("text"), 
+			color=condition, label=rownames(P))
+
+## ---- tidy=TRUE----------------------------------------------------------
+# LDF with only 100 genes
+ldf <- plotRLDF(EM, nprobes=100, labels.y=pasilla$Design$condition, trend=TRUE, robust=TRUE, plot = FALSE)
+
+# Save as a data.frame
+P <- data.frame(pasilla$Design, ldf$training)
+
+## ------------------------------------------------------------------------
+qplot(data=P, x=X1, y=X2, geom=c("text"), 
+			color=type, label=rownames(P))
+
+## ------------------------------------------------------------------------
+qplot(data=P, x=X1, y=X2, geom=c("text"), 
+			color=condition, label=rownames(P))
+
+## ------------------------------------------------------------------------
+# Trim
+above_one <- rowSums(tissues$Expression > 2)
+trimmed_em <- subset(tissues$Expression, above_one > 3)
+
+# Normalize
+dge <- DGEList(trimmed_em)
+dge <- calcNormFactors(object=dge, method="TMM")
+EM <- cpm(x=dge, log=TRUE)
+
+## ------------------------------------------------------------------------
+plotDensities(EM, legend = FALSE)
+
+## ------------------------------------------------------------------------
+# Perfrom PCA
+pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
+
+# Save data for plotting
+P <- data.frame(tissues$Design, pca$x)
+
+# Inspect components
+summary(pca)
+
+## ------------------------------------------------------------------------
+qplot(data=P, x=PC1, y=PC2, geom="text", 
+			color=gender, label=tissue.type)
 

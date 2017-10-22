@@ -1,7 +1,7 @@
 ---
 title: "Exploratory Data Analysis (EDA)"
 author: "Malte Thodberg"
-date: "2017-10-20"
+date: "2017-10-22"
 output:
   ioslides_presentation:
     smaller: true
@@ -34,11 +34,13 @@ Clusterings:
 - Divisive
 
 ## Setup
+
 Packages:
 
 ```r
 library(ABC2017)
 library(ggplot2)
+theme_set(theme_bw())
 library(RColorBrewer)
 library(pheatmap)
 library(edgeR)
@@ -51,6 +53,8 @@ library(edgeR)
 ```r
 data(zebrafish)
 ```
+
+## Setup
 
 We start from the trimmed and normalized EM from before:
 
@@ -397,13 +401,17 @@ qplot(data=as.data.frame(plsda$components), x=t1, y=t2, geom=c("text"),
 
 ## Exercise
 
-The `zebrafish` dataset is very simple! It's few samples and only limited extra information.
-
 Your exercise now is to perform EDA on the other datasets in `ABC2017`:
 
 ```r
 data(pasilla)
 ```
+
+Try to have a look at:
+
+- Normalization
+- Run PCA and MDS: Do they look similar?
+- Run LDA: How does this look compared to the unsupervised methods:
 
 If you are super quick, you can also have a look at a much more complex dataset:
 
@@ -411,10 +419,216 @@ If you are super quick, you can also have a look at a much more complex dataset:
 data(tissues)
 ```
 
-You are free to do whatever you like - **but** you should be able to motivate the choice of algorithm/package/tool etc.
+Can you spot some issues with this dataset?
 
-We will go through some example solutions at the end of today.
+The next couple of slides have some possible solutions.
 
-Happy exploring!
+# Cheat Sheet
 
+## Pasilla dataset: Normalization
+
+Trim and normalize
+
+```r
+# Trim
+above_one <- rowSums(pasilla$Expression > 1)
+trimmed_em <- subset(pasilla$Expression, above_one > 3)
+
+# Normalize
+dge <- DGEList(trimmed_em)
+dge <- calcNormFactors(object=dge, method="TMM")
+EM <- cpm(x=dge, log=TRUE)
+```
+
+## Pasilla dataset: Normalization
+
+Inspect normalization:
+
+```r
+plotDensities(EM)
+```
+
+![plot of chunk unnamed-chunk-26](figure/unnamed-chunk-26-1.png)
+
+## Pasilla dataset: PCA
+
+PCA on all genes
+
+```r
+# Perfrom PCA
+pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
+
+# Save data for plotting
+P <- data.frame(pasilla$Design, pca$x)
+
+# Inspect components
+summary(pca)
+```
+
+```
+## Importance of components%s:
+##                            PC1     PC2     PC3     PC4      PC5      PC6
+## Standard deviation     50.4068 47.8476 40.5815 32.1250 28.27049 27.23368
+## Proportion of Variance  0.2808  0.2530  0.1820  0.1140  0.08831  0.08195
+## Cumulative Proportion   0.2808  0.5337  0.7157  0.8297  0.91805  1.00000
+##                             PC7
+## Standard deviation     1.72e-13
+## Proportion of Variance 0.00e+00
+## Cumulative Proportion  1.00e+00
+```
+
+## Pasilla dataset: PCA
+
+
+```r
+qplot(data=P, x=PC1, y=PC2, geom=c("text"), 
+			color=type, label=rownames(P))
+```
+
+![plot of chunk unnamed-chunk-28](figure/unnamed-chunk-28-1.png)
+
+## Pasilla dataset: PCA
+
+
+```r
+qplot(data=P, x=PC1, y=PC2, geom=c("text"), 
+			color=condition, label=rownames(P))
+```
+
+![plot of chunk unnamed-chunk-29](figure/unnamed-chunk-29-1.png)
+
+## Pasilla dataset: MDS
+
+MDS using only a few genes
+
+```r
+# Perform MDS, but only save output
+mds <-plotMDS(EM, top=100, gene.selection="common", plot=FALSE)
+
+# Save as a data.frame
+P <- data.frame(pasilla$Design, mds$cmdscale.out)
+```
+
+## Pasilla dataset: MDS
+
+
+```r
+qplot(data=P, x=X1, y=X2, geom=c("text"), 
+			color=type, label=rownames(P))
+```
+
+![plot of chunk unnamed-chunk-31](figure/unnamed-chunk-31-1.png)
+
+## Pasilla dataset: MDS
+
+
+```r
+qplot(data=P, x=X1, y=X2, geom=c("text"), 
+			color=condition, label=rownames(P))
+```
+
+![plot of chunk unnamed-chunk-32](figure/unnamed-chunk-32-1.png)
+
+## Pasilla dataset: LDA
+
+Supervised projection:
+
+```r
+# LDF with only 100 genes
+ldf <- plotRLDF(EM, nprobes = 100, labels.y = pasilla$Design$condition, trend = TRUE, 
+    robust = TRUE, plot = FALSE)
+
+# Save as a data.frame
+P <- data.frame(pasilla$Design, ldf$training)
+```
+
+## Pasilla dataset: LDA
+
+
+```r
+qplot(data=P, x=X1, y=X2, geom=c("text"), 
+			color=type, label=rownames(P))
+```
+
+![plot of chunk unnamed-chunk-34](figure/unnamed-chunk-34-1.png)
+
+## Pasilla dataset: LDA
+
+
+```r
+qplot(data=P, x=X1, y=X2, geom=c("text"), 
+			color=condition, label=rownames(P))
+```
+
+![plot of chunk unnamed-chunk-35](figure/unnamed-chunk-35-1.png)
+
+## Tissues dataset: Normalization
+
+Trim and normalize
+
+```r
+# Trim
+above_one <- rowSums(tissues$Expression > 2)
+trimmed_em <- subset(tissues$Expression, above_one > 3)
+
+# Normalize
+dge <- DGEList(trimmed_em)
+dge <- calcNormFactors(object=dge, method="TMM")
+EM <- cpm(x=dge, log=TRUE)
+```
+
+## Tissues dataset: Normalization
+
+Inspect normalization:
+
+```r
+plotDensities(EM, legend = FALSE)
+```
+
+![plot of chunk unnamed-chunk-37](figure/unnamed-chunk-37-1.png)
+
+## Tissues dataset: PCA
+
+PCA on all genes
+
+```r
+# Perfrom PCA
+pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
+
+# Save data for plotting
+P <- data.frame(tissues$Design, pca$x)
+
+# Inspect components
+summary(pca)
+```
+
+```
+## Importance of components%s:
+##                            PC1     PC2     PC3      PC4      PC5      PC6
+## Standard deviation     48.1546 39.3606 35.8160 33.21002 30.08419 26.43208
+## Proportion of Variance  0.1932  0.1291  0.1069  0.09191  0.07542  0.05822
+## Cumulative Proportion   0.1932  0.3223  0.4292  0.52115  0.59657  0.65479
+##                             PC7      PC8      PC9     PC10     PC11
+## Standard deviation     24.16324 22.82369 21.96515 21.49747 20.67478
+## Proportion of Variance  0.04866  0.04341  0.04021  0.03851  0.03562
+## Cumulative Proportion   0.70345  0.74686  0.78707  0.82558  0.86120
+##                            PC12     PC13     PC14     PC15     PC16
+## Standard deviation     18.69108 17.27473 17.16618 16.16939 15.70819
+## Proportion of Variance  0.02911  0.02487  0.02456  0.02179  0.02056
+## Cumulative Proportion   0.89031  0.91518  0.93973  0.96152  0.98208
+##                            PC17    PC18      PC19
+## Standard deviation     13.93784 4.55212 7.718e-14
+## Proportion of Variance  0.01619 0.00173 0.000e+00
+## Cumulative Proportion   0.99827 1.00000 1.000e+00
+```
+
+## Tissues dataset: PCA
+
+
+```r
+qplot(data=P, x=PC1, y=PC2, geom="text", 
+			color=gender, label=tissue.type)
+```
+
+![plot of chunk unnamed-chunk-39](figure/unnamed-chunk-39-1.png)
 
