@@ -18,9 +18,9 @@
 #' @source \url{http://www.ncbi.nlm.nih.gov/pubmed/22496456}
 "tissues"
 
+#' Example gene expression for common designs
+"lmExamples"
+
 #' #' CAGE: Mouse nanotube experiment
 #' #' @source \url{http://www.ncbi.nlm.nih.gov/pubmed?term=20452967}
 #' "mouse"
-
-#' Example gene expression for common designs
-"lmExamples"
