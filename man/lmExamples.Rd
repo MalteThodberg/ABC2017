@@ -3,18 +3,12 @@
 \docType{data}
 \name{lmExamples}
 \alias{lmExamples}
-\title{#' CAGE: Mouse nanotube experiment
-#' @source \url{http://www.ncbi.nlm.nih.gov/pubmed?term=20452967}
-"mouse"
-Example gene expression for common designs}
+\title{Example gene expression for common designs}
 \format{An object of class \code{list} of length 6.}
 \usage{
 lmExamples
 }
 \description{
-#' CAGE: Mouse nanotube experiment
-#' @source \url{http://www.ncbi.nlm.nih.gov/pubmed?term=20452967}
-"mouse"
 Example gene expression for common designs
 }
 \keyword{datasets}
