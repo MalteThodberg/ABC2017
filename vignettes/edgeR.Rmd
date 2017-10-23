@@ -123,9 +123,8 @@ plotSmear(gallein, de.tags=rownames(gallein)[is_de != 0])
 ## Inspecting the results
 
 There is no built-in function for making a volcano plot, but it's easy to do yourself:
-```{r}
-res <- as.data.frame(topTags(gallein, n=Inf, sort.by="none"))
-ggplot(res, aes(x=logFC, y=-log10(PValue), color=FDR < 0.05)) + geom_point()
+```{r, tidy=TRUE}
+plot(-log10(PValue)~logFC, data=topTags(gallein, n=Inf, sort.by = "none"), col=factor(decideTestsDGE(gallein) != 0), pch=16)
 ```
 
 ## Quasi-likelihood: Fitting models
@@ -148,21 +147,21 @@ plotQLDisp(fitQL)
 
 ## Final exercises:
 
-Use the above code as a template for conducting your own analysis. For the `yeast` and `pasilla` datasets:
+Use the above code as a template for conducting your own analysis. For the `pasilla` dataset:
 
 - Load, trim and normalize the data
 - Inspect the study design, and decide on a model matrix to use with edgeR
 - Use edgeR to estimate dispersions and fit gene-wise GLMs
 - Report the number of up- and down-regulated genes for the tests of interests
 - Generate smear and volcano plots summarizing the analysis.
+- Does the number of DE genes change when you model the batch effect or not?
 
 If you have time:
 
-- Investigate the effect of different normalization methods.
+- Investigate the effect of different normalization methods on the number of DE genes.
 - Try out the QL-pipeline by replacing `glmFit` with `glmQLFit` and `glmLRT` with `glmQLFTest`
-- Refering the slides, see if you can also test a contrast by using a contrast-vector of the form: `c(0,0,-1,1)`
 
-Once again - the next couple of slides contain cheat sheets.
+Once again - the next couple of slides contain cheat sheets...
 
 ## Cheatsheet: Experimenting with model matrices
 
@@ -170,21 +169,35 @@ Once again - the next couple of slides contain cheat sheets.
 # Load the data
 data("pasilla")
 
-# Set a datasets
-dataset <- pasilla
+# This will makes "treated the intercept!"
+mod <- model.matrix(~condition, data=pasilla$Design)
+mod
+```
 
-# Experiment with model matrices
-mod <- model.matrix(~condition, data=dataset$Design)
+## Cheatsheet: Experimenting with model matrices
 
-# Look how the experiment is designed
-dataset$Design
+```{r}
+# Relevel to make "untreated" intercept
+pasilla$Design$condition <- relevel(pasilla$Design$condition, "untreated")
+mod <- model.matrix(~condition, data=pasilla$Design)
+mod
+```
+
+## Cheatsheet: Experimenting with model matrices
+
+```{r}
+# Relevel to make "untreated" intercept
+pasilla$Design$condition <- relevel(pasilla$Design$condition, "untreated")
+mod_batch <- model.matrix(~condition+type, data=pasilla$Design)
+mod_batch
 ```
 
 ## Cheatsheet: Fitting the models
 
+Fit and test model without batch correction:
 ```{r}
 # Trim 
-EM <- subset(dataset$Expression, rowSums(dataset$Expression >= 5) >= 3)
+EM <- subset(pasilla$Expression, rowSums(pasilla$Expression >= 5) >= 3)
 
 # Calculate normalization factors
 dge <- calcNormFactors(DGEList(EM), method="TMM")
@@ -196,26 +209,80 @@ disp <- estimateDisp(dge, design=mod, robust=TRUE)
 fit <- glmFit(disp, design=mod)
 
 # Perform the test of the given coefficient
-res <- glmLRT(fit, coef="conditionuntreated")
+res <- glmLRT(fit, coef="conditiontreated")
+```
+
+## Cheatsheet: Fitting the models
+
+Fit and test model without batch correction:
+
+```{r}
+# Calculate dispersion
+disp_batch <- estimateDisp(dge, design=mod_batch, robust=TRUE)
+
+# Fit models
+fit_batch <- glmFit(disp_batch, design=mod_batch)
+
+# Perform the test of the given coefficient
+res_batch <- glmLRT(fit_batch, coef="conditiontreated")
 ```
 
 ## Cheatsheet: Inspecting the results
 
-```{r, eval=FALSE, include=TRUE}
-# Dispersion
+Plot dispersions
+```{r}
+par(mfrow=c(1,2))
 plotBCV(disp)
-
-# topTages
-topTags(res)
-
-# Up and down regulated genes
-summary(decideTestsDGE(res))
-
-# Smear plot
-plotSmear(res, de.tags=rownames(res)[decideTestsDGE(res) != 0])
-
-# Volcano
-all_genes <- as.data.frame(topTags(res, n=Inf, sort.by="none"))
-ggplot(all_genes, aes(x=logFC, y=-log10(PValue), color=FDR < 0.05)) + geom_point()
+plotBCV(disp_batch)
 ```
 
+## Cheatsheet: Inspecting the results
+
+Number of DE genes
+```{r}
+summary(decideTestsDGE(res))
+summary(decideTestsDGE(res_batch))
+```
+
+## Cheatsheet: Inspecting the results
+
+Top genes
+```{r}
+topTags(res)
+topTags(res_batch)
+```
+
+## Cheatsheet: Inspecting the results
+
+MA-plots:
+```{r}
+par(mfrow=c(1,2))
+plotSmear(res_batch, de.tags=rownames(res)[decideTestsDGE(res) != 0])
+plotSmear(res_batch, de.tags=rownames(res_batch)[decideTestsDGE(res_batch) != 0])
+```
+
+## Cheatsheet: Inspecting the results
+
+Volcano plots:
+```{r, tidy=TRUE}
+par(mfrow=c(1,2))
+plot(-log10(PValue)~logFC, data=topTags(res, n=Inf, sort.by = "none"), col=factor(decideTestsDGE(res) != 0), pch=16)
+plot(-log10(PValue)~logFC, data=topTags(res_batch, n=Inf, sort.by = "none"), col=factor(decideTestsDGE(res_batch) != 0), pch=16)
+```
+
+## Cheatsheet: Quasi-likehood
+
+Trying the more conservative QL-pipeline
+```{r}
+fitQL_batch <- glmQLFit(y=disp_batch, design=mod_batch, robust=TRUE)
+testQL_batch <- glmQLFTest(fitQL_batch, coef=2)
+summary(decideTestsDGE(testQL_batch, p.value=0.05))
+```
+
+## Cheatsheet: Quasi-likehood
+
+The QL-pipeline estimates slightly different dispersions:
+
+```{r}
+plotQLDisp(fitQL)
+```
