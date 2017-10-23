@@ -1,7 +1,7 @@
 ---
 title: "Crash course in linear modelling for single and multiple genes"
 author: "Malte Thodberg"
-date: "2017-10-22"
+date: "2017-10-23"
 output:
   ioslides_presentation:
     smaller: true

@@ -45,9 +45,8 @@ summary(is_de)
 ## ------------------------------------------------------------------------
 plotSmear(gallein, de.tags=rownames(gallein)[is_de != 0])
 
-## ------------------------------------------------------------------------
-res <- as.data.frame(topTags(gallein, n=Inf, sort.by="none"))
-ggplot(res, aes(x=logFC, y=-log10(PValue), color=FDR < 0.05)) + geom_point()
+## ---- tidy=TRUE----------------------------------------------------------
+plot(-log10(PValue)~logFC, data=topTags(gallein, n=Inf, sort.by = "none"), col=factor(decideTestsDGE(gallein) != 0), pch=16)
 
 ## ------------------------------------------------------------------------
 fitQL <- glmQLFit(y=disp_zebra, design=mod, robust=TRUE)
@@ -61,18 +60,25 @@ plotQLDisp(fitQL)
 # Load the data
 data("pasilla")
 
-# Set a datasets
-dataset <- pasilla
+# This will makes "treated the intercept!"
+mod <- model.matrix(~condition, data=pasilla$Design)
+mod
 
-# Experiment with model matrices
-mod <- model.matrix(~condition, data=dataset$Design)
+## ------------------------------------------------------------------------
+# Relevel to make "untreated" intercept
+pasilla$Design$condition <- relevel(pasilla$Design$condition, "untreated")
+mod <- model.matrix(~condition, data=pasilla$Design)
+mod
 
-# Look how the experiment is designed
-dataset$Design
+## ------------------------------------------------------------------------
+# Relevel to make "untreated" intercept
+pasilla$Design$condition <- relevel(pasilla$Design$condition, "untreated")
+mod_batch <- model.matrix(~condition+type, data=pasilla$Design)
+mod_batch
 
 ## ------------------------------------------------------------------------
 # Trim 
-EM <- subset(dataset$Expression, rowSums(dataset$Expression >= 5) >= 3)
+EM <- subset(pasilla$Expression, rowSums(pasilla$Expression >= 5) >= 3)
 
 # Calculate normalization factors
 dge <- calcNormFactors(DGEList(EM), method="TMM")
@@ -84,22 +90,46 @@ disp <- estimateDisp(dge, design=mod, robust=TRUE)
 fit <- glmFit(disp, design=mod)
 
 # Perform the test of the given coefficient
-res <- glmLRT(fit, coef="conditionuntreated")
+res <- glmLRT(fit, coef="conditiontreated")
 
-## ---- eval=FALSE, include=TRUE-------------------------------------------
-#  # Dispersion
-#  plotBCV(disp)
-#  
-#  # topTages
-#  topTags(res)
-#  
-#  # Up and down regulated genes
-#  summary(decideTestsDGE(res))
-#  
-#  # Smear plot
-#  plotSmear(res, de.tags=rownames(res)[decideTestsDGE(res) != 0])
-#  
-#  # Volcano
-#  all_genes <- as.data.frame(topTags(res, n=Inf, sort.by="none"))
-#  ggplot(all_genes, aes(x=logFC, y=-log10(PValue), color=FDR < 0.05)) + geom_point()
+## ------------------------------------------------------------------------
+# Calculate dispersion
+disp_batch <- estimateDisp(dge, design=mod_batch, robust=TRUE)
+
+# Fit models
+fit_batch <- glmFit(disp_batch, design=mod_batch)
+
+# Perform the test of the given coefficient
+res_batch <- glmLRT(fit_batch, coef="conditiontreated")
+
+## ------------------------------------------------------------------------
+par(mfrow=c(1,2))
+plotBCV(disp)
+plotBCV(disp_batch)
+
+## ------------------------------------------------------------------------
+summary(decideTestsDGE(res))
+summary(decideTestsDGE(res_batch))
+
+## ------------------------------------------------------------------------
+topTags(res)
+topTags(res_batch)
+
+## ------------------------------------------------------------------------
+par(mfrow=c(1,2))
+plotSmear(res_batch, de.tags=rownames(res)[decideTestsDGE(res) != 0])
+plotSmear(res_batch, de.tags=rownames(res_batch)[decideTestsDGE(res_batch) != 0])
+
+## ---- tidy=TRUE----------------------------------------------------------
+par(mfrow=c(1,2))
+plot(-log10(PValue)~logFC, data=topTags(res, n=Inf, sort.by = "none"), col=factor(decideTestsDGE(res) != 0), pch=16)
+plot(-log10(PValue)~logFC, data=topTags(res_batch, n=Inf, sort.by = "none"), col=factor(decideTestsDGE(res_batch) != 0), pch=16)
+
+## ------------------------------------------------------------------------
+fitQL_batch <- glmQLFit(y=disp_batch, design=mod_batch, robust=TRUE)
+testQL_batch <- glmQLFTest(fitQL_batch, coef=2)
+summary(decideTestsDGE(testQL_batch, p.value=0.05))
+
+## ------------------------------------------------------------------------
+plotQLDisp(fitQL)
 

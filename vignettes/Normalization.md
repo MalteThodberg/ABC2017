@@ -1,7 +1,7 @@
 ---
 title: "Normalization and RNA-composition"
 author: "Malte Thodberg"
-date: "2017-10-20"
+date: "2017-10-23"
 output:
   ioslides_presentation:
     smaller: true

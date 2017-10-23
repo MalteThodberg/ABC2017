@@ -40,13 +40,10 @@ devtools::use_data(zebrafish, overwrite=TRUE)
 library(fission)
 data(fission)
 
-# Subset to simpel interaction
-small <- subset(fission, select=minute %in% c(0, 30))
+fEM <- assay(fission, "counts")
+fGR <- as.data.frame(rowRanges(fission))
 
-fEM <- assay(small, "counts")
-fGR <- as.data.frame(rowRanges(small))
-
-fDM <- as.data.frame(colData(small))
+fDM <- as.data.frame(colData(fission))
 fDM$minute <- fct_drop(fDM$minute)
 
 yeast <- list(Expression=fEM, Design=fDM, Annotation=fGR)

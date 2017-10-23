@@ -20,6 +20,9 @@ rat <- list(Design=pData(bot),
 
 names(rat$Expression) <- NULL
 
+# fix typo
+rat$Design$Time <- gsub(x=rat$Design$Time, pattern="2months", replacement="2 months")
+
 devtools::use_data(rat, overwrite = TRUE)
 
 #### Asmann Tissues ####
